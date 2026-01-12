@@ -65,8 +65,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 import org.cf0x.rustnithm.Data.DataManager
+import org.cf0x.rustnithm.Data.Haptic
 import kotlin.math.roundToInt
-
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -81,6 +81,7 @@ fun Bon() {
     val multiS by dataManager.multiS.collectAsState()
     val enableVibration by dataManager.enableVibration.collectAsState()
     val currentPrimary = MaterialTheme.colorScheme.primary
+    val haptic = remember { Haptic.getInstance() }
 
     var showColorPickerDialog by remember { mutableStateOf(false) }
     var showInfoDialog by remember { mutableStateOf(false) }
@@ -101,29 +102,22 @@ fun Bon() {
             }
         }
     }
+
     val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val topAppBarHeight = 64.dp
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
-            start = 16.dp,
-            end = 16.dp,
-            top = statusBarHeight + topAppBarHeight,
-            bottom = 16.dp
+            start = 16.dp, end = 16.dp,
+            top = statusBarHeight + topAppBarHeight, bottom = 16.dp
         ),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("Settings", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                IconButton(onClick = { showInfoDialog = true }) {
-                    Icon(Icons.Default.Info, contentDescription = "Info")
-                }
+                IconButton(onClick = { showInfoDialog = true }) { Icon(Icons.Default.Info, null) }
             }
         }
 
@@ -132,7 +126,6 @@ fun Bon() {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("Appearance", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(12.dp))
-
                     SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                         val options = listOf("Light", "Dark", "System")
                         options.forEachIndexed { index, label ->
@@ -143,26 +136,15 @@ fun Bon() {
                             ) { Text(label) }
                         }
                     }
-
                     Spacer(modifier = Modifier.height(20.dp))
-
                     ListItem(
                         modifier = Modifier
                             .clip(MaterialTheme.shapes.medium)
                             .clickable { showColorPickerDialog = true }
                             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
                         headlineContent = { Text("Skin Seed Color") },
-                        supportingContent = { Text("Custom Color") },
-                        leadingContent = {
-                            Box(modifier = Modifier.size(32.dp).clip(CircleShape).background(Color(seedColorLong)))
-                        },
-                        trailingContent = {
-                            IconButton(onClick = {
-                                dataManager.updateSeedColor(currentPrimary.toArgb().toLong())
-                            }) {
-                                Icon(Icons.Default.Build, null)
-                            }
-                        }
+                        leadingContent = { Box(modifier = Modifier.size(32.dp).clip(CircleShape).background(Color(seedColorLong))) },
+                        trailingContent = { IconButton(onClick = { dataManager.updateSeedColor(currentPrimary.toArgb().toLong()) }) { Icon(Icons.Default.Build, null) } }
                     )
                 }
             }
@@ -181,13 +163,18 @@ fun Bon() {
                 }
             }
         }
-
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
                 ListItem(
                     headlineContent = { Text("Haptic Feedback") },
                     trailingContent = {
-                        Switch(checked = enableVibration, onCheckedChange = { dataManager.updateEnableVibration(it) })
+                        Switch(
+                            checked = enableVibration,
+                            onCheckedChange = {
+                                dataManager.updateEnableVibration(it)
+                                if (!it) haptic.stop()
+                            }
+                        )
                     }
                 )
             }
@@ -208,13 +195,11 @@ fun Bon() {
                 }
 
                 OutlinedButton(
-                    onClick = {
-                        scope.launch { dataManager.resetBackgroundAndSkin() }
-                    },
+                    onClick = { scope.launch { dataManager.resetBackgroundAndSkin() } },
                     modifier = Modifier.wrapContentSize(),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Icon(Icons.Default.Delete, contentDescription = "Delete")
+                    Icon(Icons.Default.Delete, null)
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Delete")
                 }
@@ -237,6 +222,7 @@ fun Bon() {
         }
     }
 
+
     if (showColorPickerDialog) {
         val initialColor = Color(seedColorLong)
         val hsv = remember {
@@ -247,13 +233,12 @@ fun Bon() {
         var hue by remember { mutableFloatStateOf(hsv[0]) }
         var saturation by remember { mutableFloatStateOf(hsv[1]) }
         var value by remember { mutableFloatStateOf(hsv[2]) }
-
         val currentColor = remember(hue, saturation, value) {
             Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, saturation, value)))
         }
 
         AlertDialog(
-            onDismissRequest = { },
+            onDismissRequest = { showColorPickerDialog = false },
             title = { Text("Pick Seed Color") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -264,14 +249,8 @@ fun Bon() {
                             .clip(MaterialTheme.shapes.medium)
                             .background(currentColor)
                     )
-
-                    Text("Hue: ${hue.roundToInt()}°", style = MaterialTheme.typography.bodySmall)
                     Slider(value = hue, onValueChange = { hue = it }, valueRange = 0f..360f)
-
-                    Text("Saturation: ${(saturation * 100).roundToInt()}%", style = MaterialTheme.typography.bodySmall)
                     Slider(value = saturation, onValueChange = { saturation = it }, valueRange = 0f..1f)
-
-                    Text("Brightness: ${(value * 100).roundToInt()}%", style = MaterialTheme.typography.bodySmall)
                     Slider(value = value, onValueChange = { value = it }, valueRange = 0f..1f)
                 }
             },
@@ -282,16 +261,18 @@ fun Bon() {
                 }) { Text("Confirm") }
             },
             dismissButton = {
-                TextButton(onClick = { }) { Text("Cancel") }
+                TextButton(onClick = {
+                    showColorPickerDialog = false
+                }) { Text("Cancel") }
             }
         )
     }
 
     if (showInfoDialog) {
         AlertDialog(
-            onDismissRequest = { },
+            onDismissRequest = { showInfoDialog = false },
             title = { Text("About Rustnithm") },
-            text = { Text("Customizable rhythm controller.\nSeed-based adaptive skin system enabled.") },
+            text = { Text("Customizable rhythm controller.") },
             confirmButton = {
                 TextButton(onClick = {
                     showInfoDialog = false
@@ -299,22 +280,24 @@ fun Bon() {
             }
         )
     }
+
     if (showResetDialog) {
         AlertDialog(
-            onDismissRequest = { },
+            onDismissRequest = { showResetDialog = false },
             title = { Text("Reset All?") },
             text = { Text("This will restore all configurations (including keys and skin) to factory defaults.") },
             confirmButton = {
                 Button(
                     onClick = {
                         dataManager.resetToDefaults()
+                        showResetDialog = false
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) { Text("Reset Now") }
             },
             dismissButton = {
                 TextButton(onClick = {
-                    showColorPickerDialog = false
+                    showResetDialog = false
                 }) { Text("Cancel") }
             }
         )

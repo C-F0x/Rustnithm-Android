@@ -45,7 +45,9 @@ fun AirContent(
     val dataManager: DataManager = viewModel(factory = DataManager.Factory(context))
     val multiA by dataManager.multiA.collectAsState()
     val isVibrationEnabled by dataManager.enableVibration.collectAsState()
+
     val haptic = remember { Haptic.getInstance() }
+
     LaunchedEffect(view) {
         haptic.attachView(view)
     }
@@ -65,6 +67,7 @@ fun AirContent(
             activated
         }
     }
+
     LaunchedEffect(activatedRegions) {
         if (isVibrationEnabled) {
             val newlyAdded = activatedRegions - lastActivated

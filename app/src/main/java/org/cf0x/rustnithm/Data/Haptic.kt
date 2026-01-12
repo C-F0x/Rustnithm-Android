@@ -1,55 +1,51 @@
 package org.cf0x.rustnithm.Data
 
-import android.view.HapticFeedbackConstants
+import android.content.Context
+import android.os.VibrationAttributes
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import android.view.View
-import java.lang.ref.WeakReference
 
 class Haptic private constructor() {
+    private var vibrator: Vibrator? = null
 
-    private var viewRef: WeakReference<View>? = null
+    private val zoneEffect = VibrationEffect.createOneShot(12, 200)
+    private val moveEffect = VibrationEffect.createOneShot(5, 100)
 
-    var isEnabled: Boolean = true
-
-    fun attachView(view: View) {
-        if (viewRef?.get() != view) {
-            viewRef = WeakReference(view)
-        }
-    }
-
-    fun onZoneActivated() {
-        if (!isEnabled) return
-
-        val view = viewRef?.get()
-        if (view != null && view.isHapticFeedbackEnabled) {
-            view.performHapticFeedback(
-                HapticFeedbackConstants.VIRTUAL_KEY,
-                0
-            )
-        }
-    }
-
-    fun onMoveSimulated() {
-        if (!isEnabled) return
-
-        val view = viewRef?.get()
-        if (view != null && view.isHapticFeedbackEnabled) {
-            view.performHapticFeedback(
-                HapticFeedbackConstants.CLOCK_TICK
-            )
-        }
-    }
-
-    fun setHapticStatus(status: Boolean) {
-        this.isEnabled = status
-    }
+    private val hapticAttributes = VibrationAttributes.Builder()
+        .setUsage(VibrationAttributes.USAGE_TOUCH)
+        .build()
 
     companion object {
         @Volatile
         private var instance: Haptic? = null
-        fun getInstance(): Haptic {
-            return instance ?: synchronized(this) {
-                instance ?: Haptic().also { instance = it }
-            }
+        fun getInstance(): Haptic = instance ?: synchronized(this) {
+            instance ?: Haptic().also { instance = it }
         }
+    }
+    fun attachView(view: View) {
+        if (vibrator != null) return
+        val context = view.context
+        val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+        vibrator = vibratorManager.defaultVibrator
+    }
+    fun onZoneActivated() {
+        execute(zoneEffect)
+    }
+
+    fun onMoveSimulated() {
+        execute(moveEffect)
+    }
+
+    private fun execute(effect: VibrationEffect) {
+        val v = vibrator ?: return
+        if (v.hasVibrator()) {
+            v.vibrate(effect, hapticAttributes)
+        }
+    }
+
+    fun stop() {
+        vibrator?.cancel()
     }
 }

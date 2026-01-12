@@ -26,8 +26,8 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import org.cf0x.rustnithm.Data.DataManager
-import org.cf0x.rustnithm.Data.TouchLogic
 import org.cf0x.rustnithm.Data.Haptic
+import org.cf0x.rustnithm.Data.TouchLogic
 
 @Composable
 fun SlideContent(
@@ -40,7 +40,6 @@ fun SlideContent(
 
     val haptic = remember { Haptic.getInstance() }
     val view = LocalView.current
-
     LaunchedEffect(view) {
         haptic.attachView(view)
     }
@@ -87,7 +86,6 @@ fun SlideContent(
                                     if ((activated - lastActivated).isNotEmpty()) {
                                         haptic.onZoneActivated()
                                     }
-
                                     if (event.type == PointerEventType.Move) {
                                         val lastPos = lastPositions[pointerId]
                                         if (lastPos != null) {
@@ -133,4 +131,3 @@ private fun BoxScope.DebugOverlay(activated: Set<Int>, fingers: Int) {
         }
     }
 }
-

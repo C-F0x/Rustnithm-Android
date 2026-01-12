@@ -55,20 +55,17 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import org.cf0x.rustnithm.Data.DataManager
+import org.cf0x.rustnithm.Data.Haptic
 import org.cf0x.rustnithm.Data.Net
 import org.cf0x.rustnithm.Data.TouchLogic
-import org.cf0x.rustnithm.Data.Haptic
 import org.cf0x.rustnithm.Theme.DefaultGameSkin
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Jour() {
-
     val context = LocalContext.current
     val view = LocalView.current
-
     val haptic = remember { Haptic.getInstance() }
-
     LaunchedEffect(view) {
         haptic.attachView(view)
     }
@@ -76,16 +73,15 @@ fun Jour() {
     val dataManager: DataManager = viewModel(factory = DataManager.Factory(context))
     val savedIp by dataManager.targetIp.collectAsState()
     val savedPort by dataManager.targetPort.collectAsState()
-
     val bgUri by dataManager.backgroundImage.collectAsState()
     val percentPage by dataManager.percentPage.collectAsState()
     val multiA by dataManager.multiA.collectAsState()
     val multiS by dataManager.multiS.collectAsState()
     val seedColorLong by dataManager.seedColor.collectAsState()
     val themeMode by dataManager.themeMode.collectAsState()
+    val isVibrationEnabled by dataManager.enableVibration.collectAsState()
 
     val isSystemDark = isSystemInDarkTheme()
-
     var isConnected by remember { mutableStateOf(false) }
     var tempIp by remember { mutableStateOf("") }
     var tempPort by remember { mutableStateOf("") }
@@ -110,15 +106,7 @@ fun Jour() {
         1 -> true
         else -> isSystemDark
     }
-
-    LaunchedEffect(
-        isConnected,
-        activatedAir,
-        activatedSlide,
-        coinPressed,
-        servicePressed,
-        testPressed
-    ) {
+    LaunchedEffect(isConnected, activatedAir, activatedSlide, coinPressed, servicePressed, testPressed) {
         if (isConnected) {
             withContext(Dispatchers.IO) {
                 while (isActive) {
@@ -134,27 +122,25 @@ fun Jour() {
             }
         }
     }
+    LaunchedEffect(activatedAir, activatedSlide, touchPoints) {
+        if (isVibrationEnabled) {
+            val newAir = activatedAir - lastAir
+            val newSlide = activatedSlide - lastSlide
 
-    LaunchedEffect(activatedAir, activatedSlide) {
-        val newAir = activatedAir - lastAir
-        val newSlide = activatedSlide - lastSlide
-
-        if (newAir.isNotEmpty() || newSlide.isNotEmpty()) {
-            haptic.onZoneActivated()
-        } else if (touchPoints.isNotEmpty()) {
-            haptic.onMoveSimulated()
+            if (newAir.isNotEmpty() || newSlide.isNotEmpty()) {
+                haptic.onZoneActivated()
+            } else if (touchPoints.isNotEmpty()) {
+                haptic.onMoveSimulated()
+            }
         }
-
         lastAir = activatedAir
         lastSlide = activatedSlide
     }
-
     Box(
         modifier = Modifier
             .fillMaxSize()
             .padding(top = 8.dp)
     ) {
-
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -164,10 +150,9 @@ fun Jour() {
                     awaitPointerEventScope {
                         while (true) {
                             val event = awaitPointerEvent()
-                            val currentPoints =
-                                event.changes
-                                    .filter { it.pressed }
-                                    .associate { it.id to it.position }
+                            val currentPoints = event.changes
+                                .filter { it.pressed }
+                                .associate { it.id to it.position }
 
                             touchPoints = currentPoints
 
@@ -177,27 +162,13 @@ fun Jour() {
                                 val airH = totalH * percentPage
                                 val slideH = totalH - airH
 
-                                activatedAir =
-                                    TouchLogic.getActivatedAir(
-                                        currentPoints.values,
-                                        airH,
-                                        multiA
-                                    )
-
-                                activatedSlide =
-                                    TouchLogic.getActivatedSlide(
-                                        currentPoints.values,
-                                        totalW,
-                                        airH,
-                                        slideH,
-                                        multiS
-                                    )
+                                activatedAir = TouchLogic.getActivatedAir(currentPoints.values, airH, multiA)
+                                activatedSlide = TouchLogic.getActivatedSlide(currentPoints.values, totalW, airH, slideH, multiS)
                             }
                         }
                     }
                 }
         ) {
-
             bgUri?.let {
                 AsyncImage(
                     model = it,
@@ -207,7 +178,6 @@ fun Jour() {
                     alpha = 0.4f
                 )
             }
-
             DefaultGameSkin(
                 activatedAir = activatedAir,
                 activatedSlide = activatedSlide,
@@ -220,7 +190,6 @@ fun Jour() {
                 isDark = isReallyDark
             )
         }
-
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -229,9 +198,7 @@ fun Jour() {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-
             Spacer(modifier = Modifier.width(110.dp))
-
             Surface(
                 modifier = Modifier.weight(1.5f),
                 shape = CircleShape,
@@ -239,57 +206,38 @@ fun Jour() {
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 shadowElevation = 4.dp
             ) {
-
                 Row(
                     modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-
                     Surface(
                         modifier = Modifier.weight(1.2f).height(32.dp),
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
                     ) {
-                        Box(
-                            modifier = Modifier.padding(horizontal = 10.dp),
-                            contentAlignment = Alignment.CenterStart
-                        ) {
-                            if (tempIp.isEmpty()) {
-                                Text("IP address", fontSize = 11.sp, color = Color.Gray)
-                            }
+                        Box(modifier = Modifier.padding(horizontal = 10.dp), contentAlignment = Alignment.CenterStart) {
+                            if (tempIp.isEmpty()) Text("IP address", fontSize = 11.sp, color = Color.Gray)
                             BasicTextField(
                                 value = tempIp,
                                 onValueChange = { if (it.length <= 15) tempIp = it },
                                 singleLine = true,
-                                textStyle = TextStyle(
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
+                                textStyle = TextStyle(fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
                             )
                         }
                     }
-
                     Surface(
                         modifier = Modifier.width(65.dp).height(32.dp),
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
                     ) {
-                        Box(
-                            modifier = Modifier.padding(horizontal = 8.dp),
-                            contentAlignment = Alignment.CenterStart
-                        ) {
-                            if (tempPort.isEmpty()) {
-                                Text("Port", fontSize = 11.sp, color = Color.Gray)
-                            }
+                        Box(modifier = Modifier.padding(horizontal = 8.dp), contentAlignment = Alignment.CenterStart) {
+                            if (tempPort.isEmpty()) Text("Port", fontSize = 11.sp, color = Color.Gray)
                             BasicTextField(
                                 value = tempPort,
                                 onValueChange = { if (it.length <= 5) tempPort = it },
                                 singleLine = true,
-                                textStyle = TextStyle(
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
+                                textStyle = TextStyle(fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
                             )
                         }
                     }
@@ -300,10 +248,7 @@ fun Jour() {
                             if (!isConnected) {
                                 dataManager.updateTargetIp(tempIp)
                                 dataManager.updateTargetPort(tempPort)
-                                Net.start(
-                                    tempIp.ifEmpty { "127.0.0.1" },
-                                    tempPort.toIntOrNull() ?: 8080
-                                )
+                                Net.start(tempIp.ifEmpty { "127.0.0.1" }, tempPort.toIntOrNull() ?: 8080)
                                 isConnected = true
                             } else {
                                 Net.close()
@@ -312,46 +257,39 @@ fun Jour() {
                         }
                     ) {
                         Icon(
-                            imageVector =
-                                if (isConnected) Icons.Default.Link else Icons.Default.LinkOff,
+                            imageVector = if (isConnected) Icons.Default.Link else Icons.Default.LinkOff,
                             contentDescription = null,
-                            tint =
-                                if (isConnected) Color(0xFF4CAF50)
-                                else MaterialTheme.colorScheme.error
+                            tint = if (isConnected) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error
                         )
                     }
                 }
             }
-
             Surface(
                 modifier = Modifier.weight(1f),
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.9f),
                 shadowElevation = 4.dp
             ) {
-
                 Row(
                     modifier = Modifier.fillMaxSize().padding(horizontal = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-
                     val buttons = listOf(
                         Icons.Default.MonetizationOn to { v: Boolean ->
                             coinPressed = v
-                            if (v) haptic.onZoneActivated()
+                            if (v && isVibrationEnabled) haptic.onZoneActivated()
                         },
                         Icons.Default.Build to { v: Boolean ->
                             servicePressed = v
-                            if (v) haptic.onZoneActivated()
+                            if (v && isVibrationEnabled) haptic.onZoneActivated()
                         },
                         Icons.Default.Science to { v: Boolean ->
                             testPressed = v
-                            if (v) haptic.onZoneActivated()
+                            if (v && isVibrationEnabled) haptic.onZoneActivated()
                         },
                         Icons.Default.CreditCard to { _: Boolean -> }
                     )
-
 
                     buttons.forEach { (icon, update) ->
                         Surface(
@@ -373,27 +311,20 @@ fun Jour() {
                                     }
                                 },
                             shape = CircleShape,
-                            color =
-                                if (isConnected)
-                                    MaterialTheme.colorScheme.secondaryContainer
-                                else Color.Transparent
+                            color = if (isConnected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     imageVector = icon,
                                     contentDescription = null,
                                     modifier = Modifier.size(16.dp),
-                                    tint =
-                                        if (isConnected)
-                                            MaterialTheme.colorScheme.onSecondaryContainer
-                                        else Color.Gray.copy(alpha = 0.4f)
+                                    tint = if (isConnected) MaterialTheme.colorScheme.onSecondaryContainer else Color.Gray.copy(alpha = 0.4f)
                                 )
                             }
                         }
                     }
                 }
             }
-
             Spacer(modifier = Modifier.width(130.dp))
         }
     }
