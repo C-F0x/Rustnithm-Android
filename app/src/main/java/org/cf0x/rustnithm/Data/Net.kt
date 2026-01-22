@@ -17,23 +17,30 @@ object Net {
     private val netDispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
     private val scope = CoroutineScope(SupervisorJob() + netDispatcher)
 
-    private val sendBuffer = ByteArray(48)
-    private val packet = DatagramPacket(sendBuffer, 48)
+    private val sendBuffer = ByteArray(7)
+    private val packet = DatagramPacket(sendBuffer, 7)
 
     fun start(ip: String, port: Int) {
         scope.launch {
             try {
-                if (socket == null) {
-                    socket = DatagramSocket()
-                }
+                stop()
+                socket = DatagramSocket().apply { sendBufferSize = 64 * 1024 }
                 address = InetAddress.getByName(ip)
                 targetPort = port
                 packet.address = address
                 packet.port = targetPort
-                for (i in 0..7) sendBuffer[i] = 0
             } catch (e: Exception) {
                 e.printStackTrace()
             }
+        }
+    }
+
+    fun stop() {
+        try {
+            socket?.close()
+            socket = null
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
@@ -44,35 +51,32 @@ object Net {
         service: Boolean,
         test: Boolean
     ) {
-        for (i in 8..47) sendBuffer[i] = 0
-        air.forEach { id ->
-            val idx = 7 + id
-            if (idx in 8..13) sendBuffer[idx] = 1
-        }
-        slide.forEach { id ->
-            val idx = 13 + id
-
-
-            if (idx in 14..45) {
-                sendBuffer[idx] = 1
-            }
-        }
-        sendBuffer[46] = if (coin) 1 else 0
-        var flags = 0
-        if (service) flags = flags or 0x01
-        if (test) flags = flags or 0x02
-        sendBuffer[47] = flags.toByte()
+        val currentSocket = socket ?: return
         scope.launch {
             try {
-                socket?.send(packet)
-            } catch (e: Exception) {
-            }
-        }
-    }
+                sendBuffer[0] = 0xA0.toByte()
+                var airByte = 0
+                for (id in 1..6) {
+                    if (air.contains(id)) airByte = airByte or (1 shl (8 - id))
+                }
+                sendBuffer[1] = airByte.toByte()
+                for (i in 2..5) sendBuffer[i] = 0
 
-    fun close() {
-        socket?.close()
-        socket = null
-        address = null
+                slide.forEach { id ->
+                    val adjustedId = id - 1
+                    if (adjustedId in 0..31) {
+                        val byteIdx = 2 + (adjustedId / 8)
+                        val bitIdx = 7 - (adjustedId % 8)
+
+                        val mask = (1 shl bitIdx)
+                        val current = sendBuffer[byteIdx].toInt() and 0xFF
+                        sendBuffer[byteIdx] = (current or mask).toByte()
+                    }
+                }
+                sendBuffer[6] = 0
+
+                currentSocket.send(packet)
+            } catch (e: Exception) {}
+        }
     }
 }

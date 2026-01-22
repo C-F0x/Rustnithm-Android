@@ -251,7 +251,7 @@ fun Jour() {
                                 Net.start(tempIp.ifEmpty { "127.0.0.1" }, tempPort.toIntOrNull() ?: 8080)
                                 isConnected = true
                             } else {
-                                Net.close()
+                                Net.stop()
                                 isConnected = false
                             }
                         }
