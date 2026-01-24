@@ -50,6 +50,7 @@ class DataManager(context: Context) : ViewModel() {
         val BACKGROUND_IMAGE_PATH = stringPreferencesKey("background_image_path")
         val TARGET_IP = stringPreferencesKey("target_ip")
         val TARGET_PORT = stringPreferencesKey("target_port")
+        val ACCESS_CODES = stringPreferencesKey("access_codes")
     }
 
     private companion object {
@@ -96,6 +97,10 @@ class DataManager(context: Context) : ViewModel() {
     val seedColor: StateFlow<Long> = dataStore.data
         .map { preferences -> preferences[PreferenceKeys.SEED_COLOR] ?: DEFAULT_SEED_COLOR }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DEFAULT_SEED_COLOR)
+
+    val accessCodes: StateFlow<String> = dataStore.data
+        .map { preferences -> preferences[PreferenceKeys.ACCESS_CODES] ?: "" }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
 
     fun updateBackgroundAndPalette(uri: Uri, context: Context) {
         viewModelScope.launch {
@@ -195,6 +200,12 @@ class DataManager(context: Context) : ViewModel() {
     fun resetToDefaults() {
         viewModelScope.launch {
             dataStore.edit { it.clear() }
+        }
+    }
+
+    fun updateAccessCodes(code: String) {
+        viewModelScope.launch {
+            dataStore.edit { it[PreferenceKeys.ACCESS_CODES] = code }
         }
     }
 

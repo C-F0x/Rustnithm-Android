@@ -86,6 +86,8 @@ fun Jour() {
     var tempIp by remember { mutableStateOf("") }
     var tempPort by remember { mutableStateOf("") }
 
+    val accessCodes by dataManager.accessCodes.collectAsState()
+
     LaunchedEffect(savedIp, savedPort) {
         if (tempIp.isEmpty()) tempIp = savedIp
         if (tempPort.isEmpty()) tempPort = savedPort
@@ -100,13 +102,14 @@ fun Jour() {
     var coinPressed by remember { mutableStateOf(false) }
     var servicePressed by remember { mutableStateOf(false) }
     var testPressed by remember { mutableStateOf(false) }
+    var cardPressed by remember { mutableStateOf(false) }
 
     val isReallyDark = when (themeMode) {
         0 -> false
         1 -> true
         else -> isSystemDark
     }
-    LaunchedEffect(isConnected, activatedAir, activatedSlide, coinPressed, servicePressed, testPressed) {
+    LaunchedEffect(isConnected, activatedAir, activatedSlide, coinPressed, servicePressed, testPressed, cardPressed) {
         if (isConnected) {
             withContext(Dispatchers.IO) {
                 while (isActive) {
@@ -115,13 +118,16 @@ fun Jour() {
                         slide = activatedSlide,
                         coin = coinPressed,
                         service = servicePressed,
-                        test = testPressed
+                        test = testPressed,
+                        isCardActive = cardPressed,
+                        accessCode = accessCodes
                     )
                     delay(1)
                 }
             }
         }
     }
+
     LaunchedEffect(activatedAir, activatedSlide, touchPoints) {
         if (isVibrationEnabled) {
             val newAir = activatedAir - lastAir
@@ -136,6 +142,7 @@ fun Jour() {
         lastAir = activatedAir
         lastSlide = activatedSlide
     }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -190,6 +197,7 @@ fun Jour() {
                 isDark = isReallyDark
             )
         }
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -264,6 +272,7 @@ fun Jour() {
                     }
                 }
             }
+
             Surface(
                 modifier = Modifier.weight(1f),
                 shape = CircleShape,
@@ -276,19 +285,10 @@ fun Jour() {
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     val buttons = listOf(
-                        Icons.Default.MonetizationOn to { v: Boolean ->
-                            coinPressed = v
-                            if (v && isVibrationEnabled) haptic.onZoneActivated()
-                        },
-                        Icons.Default.Build to { v: Boolean ->
-                            servicePressed = v
-                            if (v && isVibrationEnabled) haptic.onZoneActivated()
-                        },
-                        Icons.Default.Science to { v: Boolean ->
-                            testPressed = v
-                            if (v && isVibrationEnabled) haptic.onZoneActivated()
-                        },
-                        Icons.Default.CreditCard to { _: Boolean -> }
+                        Icons.Default.MonetizationOn to { v: Boolean -> coinPressed = v },
+                        Icons.Default.Build to { v: Boolean -> servicePressed = v },
+                        Icons.Default.Science to { v: Boolean -> testPressed = v },
+                        Icons.Default.CreditCard to { v: Boolean -> cardPressed = v }
                     )
 
                     buttons.forEach { (icon, update) ->
@@ -302,6 +302,7 @@ fun Jour() {
                                             onPress = {
                                                 try {
                                                     update(true)
+                                                    if (isVibrationEnabled) haptic.onZoneActivated()
                                                     awaitRelease()
                                                 } finally {
                                                     update(false)

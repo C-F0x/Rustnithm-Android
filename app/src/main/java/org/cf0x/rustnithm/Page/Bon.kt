@@ -26,9 +26,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -60,6 +63,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -82,7 +86,11 @@ fun Bon() {
     val enableVibration by dataManager.enableVibration.collectAsState()
     val currentPrimary = MaterialTheme.colorScheme.primary
     val haptic = remember { Haptic.getInstance() }
-
+    val focusManager = LocalFocusManager.current
+    val accessCodes by dataManager.accessCodes.collectAsState()
+    var textFieldValue by remember(accessCodes) { mutableStateOf(accessCodes) }
+    var isError by remember { mutableStateOf(false) }
+    var passwordVisible by remember { mutableStateOf(false) }
     var showColorPickerDialog by remember { mutableStateOf(false) }
     var showInfoDialog by remember { mutableStateOf(false) }
     var showResetDialog by remember { mutableStateOf(false) }
@@ -163,6 +171,73 @@ fun Bon() {
                 }
             }
         }
+        item {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Security", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    androidx.compose.material3.OutlinedTextField(
+                        value = textFieldValue,
+                        onValueChange = {
+                            textFieldValue = it
+                            if (isError) isError = false
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Access Codes (20 Digits)") },
+                        isError = isError,
+                        visualTransformation = if (passwordVisible)
+                            androidx.compose.ui.text.input.VisualTransformation.None
+                        else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        trailingIcon = {
+                            Row {
+                                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                    Icon(
+                                        imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                        contentDescription = "Toggle mask"
+                                    )
+                                }
+                                IconButton(onClick = {
+                                    val isValid = textFieldValue.length == 20 && textFieldValue.all { it.isDigit() }
+                                    if (isValid) {
+                                        isError = false
+                                        dataManager.updateAccessCodes(textFieldValue)
+                                        focusManager.clearFocus()
+                                    } else {
+                                        isError = true
+                                    }
+                                }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Done,
+                                        contentDescription = "Save",
+                                        tint = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        },
+                        supportingText = {
+                            if (isError) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.Default.Info,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Must be exactly 20 digits", color = MaterialTheme.colorScheme.error)
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                        )
+                    )
+                }
+            }
+        }
+
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
                 ListItem(
