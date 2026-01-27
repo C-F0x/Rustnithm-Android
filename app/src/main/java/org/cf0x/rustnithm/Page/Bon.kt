@@ -88,6 +88,7 @@ fun Bon() {
     val haptic = remember { Haptic.getInstance() }
     val focusManager = LocalFocusManager.current
     val accessCodes by dataManager.accessCodes.collectAsState()
+    val sendFrequency by dataManager.sendFrequency.collectAsState()
     var textFieldValue by remember(accessCodes) { mutableStateOf(accessCodes) }
     var isError by remember { mutableStateOf(false) }
     var passwordVisible by remember { mutableStateOf(false) }
@@ -168,6 +169,58 @@ fun Bon() {
                     Slider(value = multiA, onValueChange = { dataManager.updateMultiA(it) }, valueRange = 0f..0.5f)
                     Text("Slide Sensitivity: ${"%.2f".format(multiS)}")
                     Slider(value = multiS, onValueChange = { dataManager.updateMultiS(it) }, valueRange = 0f..0.5f)
+                }
+            }
+        }
+        item {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Transmission", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    var frequencyInput by remember(sendFrequency) {
+                        mutableStateOf(if (sendFrequency == 0) "" else sendFrequency.toString())
+                    }
+                    var isFreqError by remember { mutableStateOf(false) }
+
+                    androidx.compose.material3.OutlinedTextField(
+                        value = frequencyInput,
+                        onValueChange = {
+                            frequencyInput = it
+                            if (isFreqError) isFreqError = false
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Send Frequency (Hz)") },
+                        isError = isFreqError,
+                        placeholder = { Text("1-8000") },
+                        trailingIcon = {
+                            IconButton(onClick = {
+                                val freq = frequencyInput.toIntOrNull()
+                                if (freq != null && freq in 1..8000) {
+                                    isFreqError = false
+                                    dataManager.updateSendFrequency(freq)
+                                } else {
+                                    isFreqError = true
+                                }
+                            }) {
+                                Icon(
+                                    imageVector = Icons.Default.Done,
+                                    contentDescription = "Save Frequency",
+                                    tint = if (isFreqError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        },
+                        supportingText = {
+                            if (isFreqError) {
+                                Text("Please enter a valid number (1-8000)", color = MaterialTheme.colorScheme.error)
+                            } else {
+                                Text("Higher frequency reduces latency but increases CPU load.", style = MaterialTheme.typography.bodySmall)
+                            }
+                        },
+                        singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                        )
+                    )
                 }
             }
         }

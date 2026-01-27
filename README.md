@@ -13,3 +13,9 @@ i18n
 Rustify net
 
 Sync with game LED
+
+Q&A
+
+Q:Support ios when?
+
+A:Wen i got macmini4&ipadpro, lmao

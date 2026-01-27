@@ -1,6 +1,9 @@
 package org.cf0x.rustnithm.Page
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -34,6 +37,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,10 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 import org.cf0x.rustnithm.Data.DataManager
 import org.cf0x.rustnithm.Data.Haptic
 import org.cf0x.rustnithm.Data.Net
@@ -66,6 +67,8 @@ fun Jour() {
     val context = LocalContext.current
     val view = LocalView.current
     val haptic = remember { Haptic.getInstance() }
+    val scope = rememberCoroutineScope()
+
     LaunchedEffect(view) {
         haptic.attachView(view)
     }
@@ -80,6 +83,7 @@ fun Jour() {
     val seedColorLong by dataManager.seedColor.collectAsState()
     val themeMode by dataManager.themeMode.collectAsState()
     val isVibrationEnabled by dataManager.enableVibration.collectAsState()
+    val sendFrequency by dataManager.sendFrequency.collectAsState()
 
     val isSystemDark = isSystemInDarkTheme()
     var isConnected by remember { mutableStateOf(false) }
@@ -109,22 +113,18 @@ fun Jour() {
         1 -> true
         else -> isSystemDark
     }
+
     LaunchedEffect(isConnected, activatedAir, activatedSlide, coinPressed, servicePressed, testPressed, cardPressed) {
         if (isConnected) {
-            withContext(Dispatchers.IO) {
-                while (isActive) {
-                    Net.sendFullState(
-                        air = activatedAir,
-                        slide = activatedSlide,
-                        coin = coinPressed,
-                        service = servicePressed,
-                        test = testPressed,
-                        isCardActive = cardPressed,
-                        accessCode = accessCodes
-                    )
-                    delay(1)
-                }
-            }
+            Net.sendFullState(
+                air = activatedAir,
+                slide = activatedSlide,
+                coin = coinPressed,
+                service = servicePressed,
+                test = testPressed,
+                isCardActive = cardPressed,
+                accessCode = accessCodes
+            )
         }
     }
 
@@ -139,8 +139,6 @@ fun Jour() {
                 haptic.onMoveSimulated()
             }
         }
-        lastAir = activatedAir
-        lastSlide = activatedSlide
     }
 
     Box(
@@ -256,8 +254,11 @@ fun Jour() {
                             if (!isConnected) {
                                 dataManager.updateTargetIp(tempIp)
                                 dataManager.updateTargetPort(tempPort)
-                                // 启动网络
-                                Net.start(tempIp.ifEmpty { "127.0.0.1" }, tempPort.toIntOrNull() ?: 8080)
+                                Net.start(
+                                    ip = tempIp.ifEmpty { "127.0.0.1" },
+                                    port = tempPort.toIntOrNull() ?: 8080,
+                                    frequency = sendFrequency
+                                )
                                 isConnected = true
                             } else {
                                 Net.stop()
@@ -293,6 +294,7 @@ fun Jour() {
                     )
 
                     buttons.forEach { (icon, update) ->
+                        val glowAlpha = remember { Animatable(0f) }
                         Surface(
                             modifier = Modifier
                                 .weight(1f)
@@ -304,23 +306,38 @@ fun Jour() {
                                                 try {
                                                     update(true)
                                                     if (isVibrationEnabled) haptic.onZoneActivated()
+                                                    glowAlpha.snapTo(1f)
                                                     awaitRelease()
                                                 } finally {
                                                     update(false)
+                                                    scope.launch {
+                                                        glowAlpha.animateTo(0f, tween(400))
+                                                    }
                                                 }
                                             }
                                         )
                                     }
-                                },
+                                }
+                                .border(
+                                    width = 1.5.dp,
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = glowAlpha.value),
+                                    shape = CircleShape
+                                ),
                             shape = CircleShape,
-                            color = if (isConnected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
+                            color = if (isConnected) {
+                                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f + glowAlpha.value * 0.4f)
+                            } else Color.Transparent
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     imageVector = icon,
                                     contentDescription = null,
                                     modifier = Modifier.size(16.dp),
-                                    tint = if (isConnected) MaterialTheme.colorScheme.onSecondaryContainer else Color.Gray.copy(alpha = 0.4f)
+                                    tint = if (isConnected) {
+                                        MaterialTheme.colorScheme.onSecondaryContainer
+                                    } else {
+                                        Color.Gray.copy(alpha = 0.4f)
+                                    }
                                 )
                             }
                         }

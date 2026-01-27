@@ -51,6 +51,7 @@ class DataManager(context: Context) : ViewModel() {
         val TARGET_IP = stringPreferencesKey("target_ip")
         val TARGET_PORT = stringPreferencesKey("target_port")
         val ACCESS_CODES = stringPreferencesKey("access_codes")
+        val SEND_FREQUENCY = intPreferencesKey("send_frequency")
     }
 
     private companion object {
@@ -60,6 +61,7 @@ class DataManager(context: Context) : ViewModel() {
         const val DEFAULT_MULTI_A = 0.15f
         const val DEFAULT_MULTI_S = 0.15f
         const val DEFAULT_SEED_COLOR = 0xFF6750A4L
+        const val DEFAULT_SEND_FREQUENCY = 500
     }
 
     val targetIp: StateFlow<String> = dataStore.data
@@ -70,6 +72,9 @@ class DataManager(context: Context) : ViewModel() {
         .map { preferences -> preferences[PreferenceKeys.TARGET_PORT] ?: "" }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
 
+    val sendFrequency: StateFlow<Int> = dataStore.data
+        .map { preferences -> preferences[PreferenceKeys.SEND_FREQUENCY] ?: DEFAULT_SEND_FREQUENCY }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DEFAULT_SEND_FREQUENCY)
     val backgroundImage: StateFlow<String?> = dataStore.data
         .map { preferences -> preferences[PreferenceKeys.BACKGROUND_IMAGE_PATH] }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
@@ -134,6 +139,12 @@ class DataManager(context: Context) : ViewModel() {
     fun updateTargetPort(port: String) {
         viewModelScope.launch {
             dataStore.edit { it[PreferenceKeys.TARGET_PORT] = port }
+        }
+    }
+
+    fun updateSendFrequency(frequency: Int) {
+        viewModelScope.launch {
+            dataStore.edit { it[PreferenceKeys.SEND_FREQUENCY] = frequency.coerceIn(1, 8000) }
         }
     }
 
