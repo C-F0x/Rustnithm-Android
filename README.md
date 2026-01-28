@@ -1,4 +1,4 @@
-# Rustnithm-Android
+# Rustnithm-Client
 Total built with Kotlin
 
 ## Related
@@ -10,8 +10,6 @@ Total built with Kotlin
 
 i18n
 
-Rustify net
-
 Sync with game LED
 
 Q&A
@@ -19,3 +17,5 @@ Q&A
 Q:Support ios when?
 
 A:Wen i got macmini4&ipadpro, lmao
+might turnt to kotlin multiplatform
+
